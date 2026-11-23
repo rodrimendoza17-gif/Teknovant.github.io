@@ -1,4 +1,5 @@
 @echo off
+setlocal
 title Configurar API Key de Gemini - Teknovant Labs
 cd /d "%~dp0.."
 
@@ -17,10 +18,12 @@ if "%GEMINI_KEY%"=="" (
   exit /b 1
 )
 
-set "ENV_DATA_DIR=%APPDATA%\Teknovant Labs Taller"
-if not exist "%ENV_DATA_DIR%" mkdir "%ENV_DATA_DIR%"
+set "DIR_NEW=%APPDATA%\Teknovant Labs Taller"
+set "DIR_OLD=%APPDATA%\teknovant-labs-taller"
+if not exist "%DIR_NEW%" mkdir "%DIR_NEW%"
+if not exist "%DIR_OLD%" mkdir "%DIR_OLD%"
 
-powershell -NoProfile -Command "$k = $env:GEMINI_KEY.Trim().Trim('\"'); $enc = New-Object System.Text.UTF8Encoding($false); $text = 'GEMINI_API_KEY=\"' + $k + '\"' + [Environment]::NewLine + 'ANTHROPIC_API_KEY=\"\"' + [Environment]::NewLine + 'ADMIN_PASSCODE=\"\"' + [Environment]::NewLine; [System.IO.File]::WriteAllText((Join-Path (Get-Location) '.env'), $text, $enc); [System.IO.File]::WriteAllText((Join-Path $env:ENV_DATA_DIR '.env'), $text, $enc); if (Test-Path 'release') { [System.IO.File]::WriteAllText((Join-Path (Get-Location) 'release\.env'), $text, $enc) }"
+powershell -NoProfile -Command "$q = [char]34; $k = $env:GEMINI_KEY.Trim().Trim($q).Trim([char]39); if (-not $k) { exit 1 }; $enc = New-Object System.Text.UTF8Encoding($false); $nl = [Environment]::NewLine; $txt = 'GEMINI_API_KEY=' + $q + $k + $q + $nl + 'ANTHROPIC_API_KEY=' + $q + $q + $nl + 'ADMIN_PASSCODE=' + $q + $q + $nl; [System.IO.File]::WriteAllText((Join-Path (Get-Location) '.env'), $txt, $enc); [System.IO.File]::WriteAllText((Join-Path $env:DIR_NEW '.env'), $txt, $enc); [System.IO.File]::WriteAllText((Join-Path $env:DIR_OLD '.env'), $txt, $enc); if (Test-Path 'release') { [System.IO.File]::WriteAllText((Join-Path (Get-Location) 'release\.env'), $txt, $enc) }"
 
 if %ERRORLEVEL% NEQ 0 (
   echo [ERROR] No se pudo guardar el archivo .env.
@@ -31,8 +34,10 @@ if %ERRORLEVEL% NEQ 0 (
 echo.
 echo [LISTO] Se guardo tu GEMINI_API_KEY correctamente en:
 echo  1) "%CD%\.env"
-echo  2) "%ENV_DATA_DIR%\.env"
-if exist "release\.env" echo  3) "%CD%\release\.env"
+echo  2) "%DIR_NEW%\.env"
+echo  3) "%DIR_OLD%\.env"
+if exist "release\.env" echo  4) "%CD%\release\.env"
 echo.
-echo Si ya tenias abierto el programa .exe, cierralo y vuelvelo a abrir.
+echo IMPORTANTE: Cierra por completo tu programa .exe si estaba abierto
+echo y vuelvelo a abrir para que cargue la nueva clave.
 pause

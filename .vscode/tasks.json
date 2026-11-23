@@ -2,9 +2,9 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "1. Crear Programa Windows (.EXE Instalador + .EXE Portable + .MSI)",
+      "label": "1. Crear Programa Windows (.EXE Instalador + .EXE Portable)",
       "type": "shell",
-      "command": "npm install && npm install --no-save electron electron-builder && npm run build:desktop && npx electron-builder --win nsis portable msi --x64 --config electron-builder.yml",
+      "command": "npm install --no-audit --no-fund && npm install --no-save --no-audit --no-fund electron electron-builder && npm run desktop:exe",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -12,9 +12,9 @@
       "problemMatcher": []
     },
     {
-      "label": "2. Crear Solo .EXE (Instalador + Portable)",
+      "label": "2. Crear Paquete Empresarial .MSI (Opcional, lento)",
       "type": "shell",
-      "command": "npm install && npm install --no-save electron electron-builder && npm run desktop:exe",
+      "command": "npm install --no-audit --no-fund && npm install --no-save --no-audit --no-fund electron electron-builder && npm run desktop:msi",
       "group": "build",
       "problemMatcher": []
     },

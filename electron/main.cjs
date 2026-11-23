@@ -55,18 +55,30 @@ function waitForServer(port, timeoutMs = 20000) {
 
 app.setName('Teknovant Labs Taller');
 
-function ensureUserEnvFile(userDataDir, appRoot) {
-  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR;
-  if (portableDir) {
-    const portableEnv = path.join(portableDir, '.env');
-    if (fs.existsSync(portableEnv)) {
-      return portableEnv;
-    }
+function envHasGeminiKey(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return false;
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    return /GEMINI_API_KEY\s*=\s*["']?[A-Za-z0-9_\-]{10,}["']?/.test(raw);
+  } catch {
+    return false;
   }
+}
 
-  const exeDirEnv = path.join(path.dirname(process.execPath), '.env');
-  if (app.isPackaged && fs.existsSync(exeDirEnv)) {
-    return exeDirEnv;
+function ensureUserEnvFile(userDataDir, appRoot) {
+  const candidates = [];
+  if (process.env.PORTABLE_EXECUTABLE_DIR) {
+    candidates.push(path.join(process.env.PORTABLE_EXECUTABLE_DIR, '.env'));
+  }
+  if (app.isPackaged) {
+    candidates.push(path.join(path.dirname(process.execPath), '.env'));
+  }
+  candidates.push(path.join(userDataDir, '.env'));
+  candidates.push(path.join(app.getPath('appData'), 'teknovant-labs-taller', '.env'));
+  candidates.push(path.join(appRoot, '.env'));
+
+  for (const c of candidates) {
+    if (envHasGeminiKey(c)) return c;
   }
 
   const userEnv = path.join(userDataDir, '.env');

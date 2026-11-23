@@ -9,11 +9,29 @@ import { fileURLToPath } from 'url';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 
-const customEnvPath = process.env.TEKNOVANT_ENV_PATH;
-if (customEnvPath && fs.existsSync(customEnvPath)) {
-  dotenv.config({ path: customEnvPath });
-} else {
-  dotenv.config();
+const envCandidates = [
+  process.env.TEKNOVANT_ENV_PATH,
+  process.env.PORTABLE_EXECUTABLE_DIR
+    ? path.join(process.env.PORTABLE_EXECUTABLE_DIR, '.env')
+    : null,
+  path.join(process.cwd(), '.env'),
+  process.env.APPDATA
+    ? path.join(process.env.APPDATA, 'Teknovant Labs Taller', '.env')
+    : null,
+  process.env.APPDATA
+    ? path.join(process.env.APPDATA, 'teknovant-labs-taller', '.env')
+    : null,
+].filter((p): p is string => Boolean(p));
+
+for (const candidate of envCandidates) {
+  if (!fs.existsSync(candidate)) continue;
+  const parsed = dotenv.parse(fs.readFileSync(candidate));
+  for (const [k, v] of Object.entries(parsed)) {
+    const trimmed = typeof v === 'string' ? v.trim() : '';
+    if (trimmed && (!process.env[k] || !process.env[k]!.trim())) {
+      process.env[k] = trimmed;
+    }
+  }
 }
 import type {
   AuthUser,
