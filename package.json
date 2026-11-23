@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "description": "Teknovant Labs - Administrador de Taller, Cotizador IA y WhatsApp",
+  "author": "Teknovant Labs",
   "type": "module",
   "main": "electron/main.cjs",
   "engines": {
