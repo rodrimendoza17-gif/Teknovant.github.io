@@ -19,29 +19,30 @@ if not exist ".env" (
   )
 )
 
-powershell -NoProfile -Command "$raw = Get-Content -Path '.env' -Raw -ErrorAction SilentlyContinue; if ($raw -match 'GEMINI_API_KEY\s*=\s*\"?[A-Za-z0-9_\-]{10,}\"?' ) { exit 0 } else { exit 1 }"
+powershell -NoProfile -Command "if (Test-Path '.env' -PathType Container) { Remove-Item '.env' -Recurse -Force }; $raw = Get-Content -Path '.env' -Raw -ErrorAction SilentlyContinue; if ($raw -match 'GEMINI_API_KEY\s*=\s*[\x22\x27]?[A-Za-z0-9_\-\.]{10,}[\x22\x27]?') { exit 0 } else { exit 1 }"
+if %ERRORLEVEL% EQU 0 goto after_key_prompt
+
+echo.
+echo ============================================================
+echo   CONFIGURAR GEMINI_API_KEY ANTES DE CREAR EL .EXE
+echo ============================================================
+echo Pega tu API Key de Google AI Studio [AIza... o AQ....]
+echo o presiona ENTER para dejarlo vacio y configurarlo despues:
+echo.
+set /p "GEMINI_KEY=GEMINI_API_KEY: "
+
+if not defined GEMINI_KEY goto after_key_prompt
+if "%GEMINI_KEY%"=="" goto after_key_prompt
+
+powershell -NoProfile -Command "$q = [char]34; $k = $env:GEMINI_KEY.Trim().Trim($q).Trim([char]39); if (-not $k) { exit 0 }; $enc = New-Object System.Text.UTF8Encoding($false); $nl = [Environment]::NewLine; $txt = 'GEMINI_API_KEY=' + $q + $k + $q + $nl + 'ANTHROPIC_API_KEY=' + $q + $q + $nl + 'ADMIN_PASSCODE=' + $q + $q + $nl; $localEnv = Join-Path (Get-Location) '.env'; if (Test-Path $localEnv -PathType Container) { Remove-Item $localEnv -Recurse -Force }; [System.IO.File]::WriteAllText($localEnv, $txt, $enc); foreach ($sub in @('Teknovant Labs Taller', 'teknovant-labs-taller')) { try { $dir = Join-Path $env:APPDATA $sub; if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }; $target = Join-Path $dir '.env'; if (Test-Path $target -PathType Container) { Remove-Item $target -Recurse -Force }; if (Test-Path $target) { Set-ItemProperty -Path $target -Name IsReadOnly -Value $false -ErrorAction SilentlyContinue }; [System.IO.File]::WriteAllText($target, $txt, $enc) } catch { } }"
 if %ERRORLEVEL% NEQ 0 (
-  echo.
-  echo ============================================================
-  echo   CONFIGURAR GEMINI_API_KEY ANTES DE CREAR EL .EXE
-  echo ============================================================
-  echo Pega tu API Key de Google AI Studio (empieza con AIza...)
-  echo o presiona ENTER para dejarlo vacio y configurarlo despues:
-  echo.
-  set /p "GEMINI_KEY=GEMINI_API_KEY: "
+  echo [ERROR] No se pudo guardar .env en la carpeta del proyecto.
+  pause
+  exit /b 1
 )
+echo [OK] GEMINI_API_KEY guardada para incluirse en el .EXE.
 
-if defined GEMINI_KEY (
-  if not "%GEMINI_KEY%"=="" (
-    set "DIR_NEW=%APPDATA%\Teknovant Labs Taller"
-    set "DIR_OLD=%APPDATA%\teknovant-labs-taller"
-    if not exist "%DIR_NEW%" mkdir "%DIR_NEW%"
-    if not exist "%DIR_OLD%" mkdir "%DIR_OLD%"
-    powershell -NoProfile -Command "$q = [char]34; $k = $env:GEMINI_KEY.Trim().Trim($q).Trim([char]39); if ($k) { $enc = New-Object System.Text.UTF8Encoding($false); $nl = [Environment]::NewLine; $txt = 'GEMINI_API_KEY=' + $q + $k + $q + $nl + 'ANTHROPIC_API_KEY=' + $q + $q + $nl + 'ADMIN_PASSCODE=' + $q + $q + $nl; [System.IO.File]::WriteAllText((Join-Path (Get-Location) '.env'), $txt, $enc); [System.IO.File]::WriteAllText((Join-Path $env:DIR_NEW '.env'), $txt, $enc); [System.IO.File]::WriteAllText((Join-Path $env:DIR_OLD '.env'), $txt, $enc) }"
-    echo [OK] GEMINI_API_KEY guardada para incluirse en el .EXE.
-  )
-)
-
+:after_key_prompt
 echo.
 echo [1/4] Instalando dependencias del taller...
 call npm install --no-audit --no-fund
@@ -80,8 +81,8 @@ if exist ".env" copy /y ".env" "release\.env" >nul
 echo.
 echo ============================================================
 echo  LISTO! Tus programas .EXE estan en la carpeta release\:
-echo   - Teknovant Labs Taller Setup 1.0.0.exe (Instalador)
-echo   - Teknovant-Labs-Taller-Portable.exe     (1 solo archivo)
+echo   - Teknovant Labs Taller Setup 1.0.0.exe [Instalador]
+echo   - Teknovant-Labs-Taller-Portable.exe     [1 solo archivo]
 echo ============================================================
 if exist "release" start "" "release"
 pause

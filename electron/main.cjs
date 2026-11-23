@@ -58,8 +58,9 @@ app.setName('Teknovant Labs Taller');
 function envHasGeminiKey(filePath) {
   try {
     if (!fs.existsSync(filePath)) return false;
+    if (fs.statSync(filePath).isDirectory()) return false;
     const raw = fs.readFileSync(filePath, 'utf-8');
-    return /GEMINI_API_KEY\s*=\s*["']?[A-Za-z0-9_\-]{10,}["']?/.test(raw);
+    return /GEMINI_API_KEY\s*=\s*["']?[A-Za-z0-9_\-.]{10,}["']?/.test(raw);
   } catch {
     return false;
   }
@@ -85,12 +86,16 @@ function ensureUserEnvFile(userDataDir, appRoot) {
   const rootEnv = path.join(appRoot, '.env');
   const exampleEnv = path.join(appRoot, '.env.example');
 
-  if (!fs.existsSync(userEnv)) {
-    if (fs.existsSync(rootEnv)) {
-      fs.copyFileSync(rootEnv, userEnv);
-    } else if (fs.existsSync(exampleEnv)) {
-      fs.copyFileSync(exampleEnv, userEnv);
+  try {
+    if (!fs.existsSync(userEnv)) {
+      if (fs.existsSync(rootEnv) && !fs.statSync(rootEnv).isDirectory()) {
+        fs.copyFileSync(rootEnv, userEnv);
+      } else if (fs.existsSync(exampleEnv) && !fs.statSync(exampleEnv).isDirectory()) {
+        fs.copyFileSync(exampleEnv, userEnv);
+      }
     }
+  } catch {
+    // Ignore optional copy failures
   }
   return userEnv;
 }

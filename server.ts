@@ -24,13 +24,17 @@ const envCandidates = [
 ].filter((p): p is string => Boolean(p));
 
 for (const candidate of envCandidates) {
-  if (!fs.existsSync(candidate)) continue;
-  const parsed = dotenv.parse(fs.readFileSync(candidate));
-  for (const [k, v] of Object.entries(parsed)) {
-    const trimmed = typeof v === 'string' ? v.trim() : '';
-    if (trimmed && (!process.env[k] || !process.env[k]!.trim())) {
-      process.env[k] = trimmed;
+  try {
+    if (!fs.existsSync(candidate) || fs.statSync(candidate).isDirectory()) continue;
+    const parsed = dotenv.parse(fs.readFileSync(candidate));
+    for (const [k, v] of Object.entries(parsed)) {
+      const trimmed = typeof v === 'string' ? v.trim() : '';
+      if (trimmed && (!process.env[k] || !process.env[k]!.trim())) {
+        process.env[k] = trimmed;
+      }
     }
+  } catch {
+    // Skip unreadable candidate
   }
 }
 import type {
@@ -215,10 +219,12 @@ function broadcastStateRefresh(affectedPhone?: string, affectedEmail?: string) {
 // AI PROVIDERS (ANTHROPIC CLAUDE + GOOGLE GEMINI)
 // -------------------------------------------------------------------
 function getGeminiClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return null;
+  const isVertexExpressKey = apiKey.startsWith('AQ.');
   return new GoogleGenAI({
     apiKey,
+    ...(isVertexExpressKey ? { vertexai: true } : {}),
     httpOptions: {
       headers: {
         'User-Agent': 'aistudio-build',
