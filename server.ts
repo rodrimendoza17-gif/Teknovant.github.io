@@ -222,9 +222,14 @@ function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return null;
   const isVertexExpressKey = apiKey.startsWith('AQ.');
+  if (isVertexExpressKey) {
+    return new GoogleGenAI({
+      apiKey,
+      vertexai: true,
+    });
+  }
   return new GoogleGenAI({
     apiKey,
-    ...(isVertexExpressKey ? { vertexai: true } : {}),
     httpOptions: {
       headers: {
         'User-Agent': 'aistudio-build',
@@ -469,16 +474,19 @@ async function callGeminiMarketQuote(
     } catch (err) {
       lastError = err;
       const rawMsg = err instanceof Error ? err.message : String(err);
-      const isTransient =
-        isQuotaOrRateLimitError(err) ||
-        rawMsg.includes('503') ||
-        rawMsg.includes('UNAVAILABLE') ||
-        rawMsg.includes('NOT_FOUND');
-      if (!isTransient) {
+      const isApiKeyInvalid = rawMsg.includes('API_KEY_INVALID') || rawMsg.includes('API key not valid');
+      const isTransientOrToolFallback =
+        !isApiKeyInvalid &&
+        (attempt.useSearch ||
+          isQuotaOrRateLimitError(err) ||
+          rawMsg.includes('503') ||
+          rawMsg.includes('UNAVAILABLE') ||
+          rawMsg.includes('NOT_FOUND'));
+      if (!isTransientOrToolFallback) {
         throw err;
       }
       console.warn(
-        `Gemini attempt (${attempt.model}, search=${attempt.useSearch}) hit transient/quota limit, trying fallback...`
+        `Gemini attempt (${attempt.model}, search=${attempt.useSearch}) failed (${rawMsg.slice(0, 140)}), trying fallback...`
       );
     }
   }
@@ -1311,13 +1319,17 @@ REGLAS CRÍTICAS:
     let status = 500;
     let friendlyMessage = rawMessage;
 
-    if (rawMessage.includes('API_KEY_INVALID') || rawMessage.includes('PERMISSION_DENIED') || rawMessage.includes('401') || rawMessage.includes('403')) {
+    if (rawMessage.includes('API_KEY_INVALID') || rawMessage.includes('API key not valid') || rawMessage.includes('PERMISSION_DENIED') || rawMessage.includes('401') || rawMessage.includes('403')) {
       status = 403;
       const isDesktopOrLocal = Boolean(process.env.TEKNOVANT_DATA_DIR || process.env.TEKNOVANT_ENV_PATH);
+      const cleanDetail = rawMessage
+        .replace(/AIza[0-9A-Za-z_\-]+/g, '[KEY]')
+        .replace(/AQ\.[0-9A-Za-z_\-\.]+/g, '[KEY]')
+        .slice(0, 180);
       friendlyMessage = isDesktopOrLocal
-        ? 'La clave GEMINI_API_KEY en tu archivo .env no es válida o no tiene permisos activos. Crea una API Key gratuita (empieza por AIza...) en aistudio.google.com/apikey y guárdala con windows\\Configurar-API-Gemini.bat (luego cierra y vuelve a abrir el programa).'
-        : 'La llave de API de Gemini no es válida o no tiene permisos. Verifica tu GEMINI_API_KEY (empieza por AIza... en aistudio.google.com/apikey) en .env o en las variables del servidor.';
-      console.warn('Gemini auth warning in /api/ai/market-quote:', rawMessage);
+        ? `La clave GEMINI_API_KEY en tu archivo .env no es válida o no tiene permisos activos. Genera una API Key gratuita (empieza por AIza...) en aistudio.google.com/apikey y guárdala con windows\\Configurar-API-Gemini.bat (luego cierra y vuelve a abrir el programa). Detalle: ${cleanDetail}`
+        : `La llave de API de Gemini no es válida o no tiene permisos. Verifica tu GEMINI_API_KEY (empieza por AIza... en aistudio.google.com/apikey) en .env o en las variables del servidor. Detalle: ${cleanDetail}`;
+      console.warn('Gemini auth warning in /api/ai/market-quote:', cleanDetail);
     } else if (isQuotaOrRateLimitError(err)) {
       status = 429;
       friendlyMessage =
