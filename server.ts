@@ -371,31 +371,51 @@ async function callGeminiMarketQuote(
     };
   }
 
+  const isVertexExpressKey = Boolean(process.env.GEMINI_API_KEY?.trim().startsWith('AQ.'));
+
   const attempts: Array<{
     model: string;
     useSearch: boolean;
-    thinkingLevel: ThinkingLevel;
+    thinkingLevel?: ThinkingLevel;
     delayBeforeMs: number;
-  }> = [
-    {
-      model: 'gemini-4-hydrogen',
-      useSearch: true,
-      thinkingLevel: ThinkingLevel.LOW,
-      delayBeforeMs: 0,
-    },
-    {
-      model: 'gemini-4-hydrogen',
-      useSearch: false,
-      thinkingLevel: ThinkingLevel.LOW,
-      delayBeforeMs: 900,
-    },
-    {
-      model: 'gemini-3.1-flash-lite',
-      useSearch: false,
-      thinkingLevel: ThinkingLevel.MINIMAL,
-      delayBeforeMs: 1400,
-    },
-  ];
+  }> = isVertexExpressKey
+    ? [
+        {
+          model: 'gemini-2.5-flash',
+          useSearch: true,
+          delayBeforeMs: 0,
+        },
+        {
+          model: 'gemini-2.5-flash',
+          useSearch: false,
+          delayBeforeMs: 900,
+        },
+      ]
+    : [
+        {
+          model: 'gemini-4-hydrogen',
+          useSearch: true,
+          thinkingLevel: ThinkingLevel.LOW,
+          delayBeforeMs: 0,
+        },
+        {
+          model: 'gemini-4-hydrogen',
+          useSearch: false,
+          thinkingLevel: ThinkingLevel.LOW,
+          delayBeforeMs: 900,
+        },
+        {
+          model: 'gemini-3.1-flash-lite',
+          useSearch: false,
+          thinkingLevel: ThinkingLevel.MINIMAL,
+          delayBeforeMs: 1400,
+        },
+        {
+          model: 'gemini-2.5-flash',
+          useSearch: false,
+          delayBeforeMs: 1400,
+        },
+      ];
 
   let lastError: unknown = null;
 
@@ -410,7 +430,9 @@ async function callGeminiMarketQuote(
         contents: userPrompt,
         config: {
           systemInstruction,
-          thinkingConfig: { thinkingLevel: attempt.thinkingLevel },
+          ...(attempt.thinkingLevel
+            ? { thinkingConfig: { thinkingLevel: attempt.thinkingLevel } }
+            : {}),
           ...(attempt.useSearch
             ? { tools: [{ googleSearch: {} }] }
             : { responseMimeType: 'application/json' }),
@@ -1291,8 +1313,10 @@ REGLAS CRÍTICAS:
 
     if (rawMessage.includes('API_KEY_INVALID') || rawMessage.includes('PERMISSION_DENIED') || rawMessage.includes('401') || rawMessage.includes('403')) {
       status = 403;
-      friendlyMessage =
-        'La llave de API de Gemini no es válida o no tiene permisos. Verifica tu clave en Settings > Secrets.';
+      const isDesktopOrLocal = Boolean(process.env.TEKNOVANT_DATA_DIR || process.env.TEKNOVANT_ENV_PATH);
+      friendlyMessage = isDesktopOrLocal
+        ? 'La clave GEMINI_API_KEY en tu archivo .env no es válida o no tiene permisos activos. Crea una API Key gratuita (empieza por AIza...) en aistudio.google.com/apikey y guárdala con windows\\Configurar-API-Gemini.bat (luego cierra y vuelve a abrir el programa).'
+        : 'La llave de API de Gemini no es válida o no tiene permisos. Verifica tu GEMINI_API_KEY (empieza por AIza... en aistudio.google.com/apikey) en .env o en las variables del servidor.';
       console.warn('Gemini auth warning in /api/ai/market-quote:', rawMessage);
     } else if (isQuotaOrRateLimitError(err)) {
       status = 429;
