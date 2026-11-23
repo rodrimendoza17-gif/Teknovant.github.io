@@ -53,7 +53,22 @@ function waitForServer(port, timeoutMs = 20000) {
   });
 }
 
+app.setName('Teknovant Labs Taller');
+
 function ensureUserEnvFile(userDataDir, appRoot) {
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR;
+  if (portableDir) {
+    const portableEnv = path.join(portableDir, '.env');
+    if (fs.existsSync(portableEnv)) {
+      return portableEnv;
+    }
+  }
+
+  const exeDirEnv = path.join(path.dirname(process.execPath), '.env');
+  if (app.isPackaged && fs.existsSync(exeDirEnv)) {
+    return exeDirEnv;
+  }
+
   const userEnv = path.join(userDataDir, '.env');
   const rootEnv = path.join(appRoot, '.env');
   const exampleEnv = path.join(appRoot, '.env.example');

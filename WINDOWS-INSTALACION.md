@@ -7,7 +7,7 @@ Puedes abrir esta carpeta directamente en **Visual Studio Code** o **Microsoft V
 ## Requisito previo en tu PC con Windows
 1. Instala **Node.js LTS (v22 o superior)**: https://nodejs.org/
 2. Descarga este proyecto (o clónalo desde GitHub) en una carpeta de tu PC.
-3. *(Opcional)* Copia `.env.example` a `.env` y agrega tu `GEMINI_API_KEY` si usarás el Cotizador IA.
+3. *(Opcional)* Para activar el **Cotizador IA**, haz doble clic en **`windows\Configurar-API-Gemini.bat`** y pega tu `GEMINI_API_KEY` (no uses `setx` manualmente en consola; el script crea el `.env` con las comillas correctas).
 
 ---
 
