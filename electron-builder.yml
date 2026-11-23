@@ -1,0 +1,34 @@
+appId: com.teknovant.labs.taller
+productName: Teknovant Labs Taller
+copyright: Copyright © 2026 Teknovant Labs
+directories:
+  output: release
+files:
+  - dist/**/*
+  - dist-server/**/*
+  - electron/**/*
+  - package.json
+  - .env.example
+asarUnpack:
+  - node_modules/sharp/**/*
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: msi
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Teknovant Labs Taller
+msi:
+  oneClick: false
+  perMachine: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Teknovant Labs Taller

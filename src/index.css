@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply antialiased text-zinc-100 bg-[#070b14] min-h-screen selection:bg-cyan-500 selection:text-black;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Futuristic Cyber Accents */
+.cyber-grid {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(0, 242, 254, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 242, 254, 0.04) 1px, transparent 1px);
+}
+
+.hud-panel {
+  background: rgba(11, 19, 43, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 242, 254, 0.18);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.hud-panel:hover {
+  border-color: rgba(0, 242, 254, 0.35);
+  box-shadow: 0 8px 32px 0 rgba(0, 242, 254, 0.1);
+}
+
+.neon-cyan-glow {
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.35);
+}
+
+.neon-text-cyan {
+  text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+}
+
+.neon-violet-glow {
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.35);
+}
+
+/* Custom Print Rules for PDF export and thermal ticket printing */
+@media print {
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  header, nav, button, .print\:hidden {
+    display: none !important;
+  }
+
+  #printable-document {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 4mm 6mm !important;
+    box-sizing: border-box !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
+  }
+
+  /* Thermal POS Receipt Printer 80mm / 58mm roll rules */
+  #printable-ticket, .thermal-ticket-container {
+    display: block !important;
+    position: static !important;
+    width: 78mm !important;
+    max-width: 78mm !important;
+    margin: 0 auto !important;
+    padding: 2mm 3mm !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+  }
+
+  body.ticket-58mm #printable-ticket,
+  body.ticket-58mm .thermal-ticket-container {
+    width: 54mm !important;
+    max-width: 54mm !important;
+    font-size: 10px !important;
+    padding: 1mm 2mm !important;
+  }
+
+  @page {
+    margin: 4mm 5mm;
+    size: portrait;
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Teknovant Labs - Taller Tecnológico y Servicio Técnico",
+  "description": "Plataforma futurista e integral para taller de servicio técnico Teknovant: remisiones con firma digital, seguimiento WhatsApp, cotizaciones, recibos y facturas en PDF.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
