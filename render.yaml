@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: teknovant-labs-taller
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    disk:
+      name: teknovant-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: HOST
+        value: 0.0.0.0
+      - key: TEKNOVANT_DATA_DIR
+        value: /app/data
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ADMIN_PASSCODE
+        sync: false

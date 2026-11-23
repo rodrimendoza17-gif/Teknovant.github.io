@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "1. Crear Programa Windows (.EXE Instalador + .EXE Portable + .MSI)",
+      "type": "shell",
+      "command": "npm install && npm install --no-save electron electron-builder && npm run build:desktop && npx electron-builder --win nsis portable msi --x64 --config electron-builder.yml",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "2. Crear Solo .EXE (Instalador + Portable)",
+      "type": "shell",
+      "command": "npm install && npm install --no-save electron electron-builder && npm run desktop:exe",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "3. Compilar Desktop (Web + Servidor)",
+      "type": "shell",
+      "command": "npm run build:desktop",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "4. Probar Programa de Escritorio (Electron)",
+      "type": "shell",
+      "command": "npm run desktop:dev",
+      "problemMatcher": []
+    },
+    {
+      "label": "5. Iniciar Servidor Web Desarrollo",
+      "type": "shell",
+      "command": "npm run dev",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

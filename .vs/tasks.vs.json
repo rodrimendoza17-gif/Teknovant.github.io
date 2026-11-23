@@ -1,0 +1,38 @@
+{
+  "version": "0.2.1",
+  "tasks": [
+    {
+      "taskLabel": "Crear EXE e Instalador Windows (Teknovant Labs)",
+      "appliesTo": "/",
+      "type": "launch",
+      "contextType": "build",
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "npm install && npm install --no-save electron electron-builder && npm run desktop:exe"
+      ]
+    },
+    {
+      "taskLabel": "Crear EXE + MSI Completo",
+      "appliesTo": "/",
+      "type": "launch",
+      "contextType": "build",
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "npm install && npm install --no-save electron electron-builder && npm run build:desktop && npx electron-builder --win nsis portable msi --x64 --config electron-builder.yml"
+      ]
+    },
+    {
+      "taskLabel": "Compilar Frontend y Servidor",
+      "appliesTo": "/",
+      "type": "launch",
+      "contextType": "build",
+      "command": "cmd.exe",
+      "args": [
+        "/c",
+        "npm run build:desktop"
+      ]
+    }
+  ]
+}

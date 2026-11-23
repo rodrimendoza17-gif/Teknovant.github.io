@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-server
+release
+data
+.git
+.env
+.env.*
+!.env.example
+*.log
+*.exe
+*.msi

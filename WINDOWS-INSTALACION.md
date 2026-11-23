@@ -1,43 +1,47 @@
-# Usar Teknovant Labs como Programa en Windows
+# Crear el `.exe` en Visual Studio o Visual Studio Code (Windows)
 
-Puedes ejecutar este taller en tu PC con Windows de **dos maneras**: como programa de escritorio directo con doble clic o compilando un instalador clásico (`.exe` y `.msi`).
-
----
-
-## Requisito previo (solo una vez)
-1. Instala **Node.js LTS (v22 o superior)** en tu PC desde: https://nodejs.org/
-2. Descarga o clona esta carpeta completa del proyecto en tu computadora.
-3. Si deseas usar el **Cotizador IA**, edita el archivo `.env` (copiando `.env.example` a `.env`) y pega tu `GEMINI_API_KEY`.
+Puedes abrir esta carpeta directamente en **Visual Studio Code** o **Microsoft Visual Studio** en Windows y generar tu programa `.exe` (tanto **instalador** como **portable de 1 solo archivo**) y `.msi`.
 
 ---
 
-## Opción A: Modo Programa Directo (sin compilar instalador)
-1. Abre la carpeta `windows\`.
-2. Haz doble clic en **`Iniciar-Taller.bat`**.
-3. La primera vez instalará las librerías y compilará automáticamente; luego abrirá el taller en una **ventana propia de aplicación** en tu escritorio.
-4. Puedes crear un acceso directo en tu Escritorio hacia `windows\Iniciar-Taller.bat`.
-
-> Todos tus datos (`workshop-db.json` y tu sesión vinculada de WhatsApp) se guardan en la carpeta `data\` dentro del proyecto.
+## Requisito previo en tu PC con Windows
+1. Instala **Node.js LTS (v22 o superior)**: https://nodejs.org/
+2. Descarga este proyecto (o clónalo desde GitHub) en una carpeta de tu PC.
+3. *(Opcional)* Copia `.env.example` a `.env` y agrega tu `GEMINI_API_KEY` si usarás el Cotizador IA.
 
 ---
 
-## Opción B: Crear el Instalador `.exe` y `.msi` para Windows
-1. Abre la carpeta `windows\`.
-2. Haz doble clic en **`Empaquetar-Instalador-Windows.bat`**.
-3. El script compilará la interfaz web, el servidor interno (`dist-server/server.mjs`) y generará en la carpeta **`release\`**:
-   - Instalador clásico **`.exe`** (NSIS)
-   - Paquete empresarial **`.msi`**
-4. Ejecuta el instalador en tu PC o en otras computadoras con Windows.
+## Opción 1: Desde Visual Studio Code (VS Code)
+1. Abre **Visual Studio Code** > **Archivo > Abrir carpeta...** y selecciona la carpeta del taller.
+2. Presiona **`Ctrl + Shift + B`** (o ve al menú **Terminal > Ejecutar tarea de compilación...**).
+3. Elige **`1. Crear Programa Windows (.EXE Instalador + .EXE Portable + .MSI)`** (o `2. Crear Solo .EXE`).
+4. Al terminar, abre la carpeta **`release\`** y encontrarás:
+   - **`Teknovant Labs Taller Setup 1.0.0.exe`** (instalador clásico de Windows)
+   - **`Teknovant-Labs-Taller-Portable.exe`** (ejecutable directo de un solo archivo, sin instalar)
+   - **`Teknovant Labs Taller 1.0.0.msi`** (instalador MSI)
+5. También puedes probar el programa antes de empaquetar desde la terminal integrada con:
+   ```bash
+   npm run desktop:dev
+   ```
 
-### ¿Dónde guarda los datos y el `.env` el programa ya instalado?
-Cuando instalas el `.exe` o `.msi`, Windows guarda tus datos y tu sesión de WhatsApp de forma segura en tu carpeta de usuario (con permisos de escritura):
+---
+
+## Opción 2: Desde Microsoft Visual Studio (2022 / 2026)
+1. Abre **Visual Studio** > **Abrir una carpeta local** y selecciona la carpeta del taller.
+2. En el **Explorador de soluciones**, haz clic derecho sobre la raíz del proyecto o usa el botón verde **Iniciar (F5)** para elegir:
+   - **`Compilar .EXE e Instaladores en release\`**
+   - **`Ejecutar Teknovant Labs (Ventana Windows)`**
+3. Los ejecutables quedarán listos en la carpeta **`release\`**.
+
+---
+
+## Opción 3: Doble clic directo sin abrir editor
+- Abre `windows\Empaquetar-Instalador-Windows.bat` para generar los `.exe` y `.msi` en `release\`.
+- O abre `windows\Iniciar-Taller.bat` para usarlo de inmediato como programa de escritorio sin empaquetar.
+
+---
+
+## ¿Dónde guarda los datos el `.exe` ya ejecutado?
+Para evitar bloqueos de permisos de Windows en `Archivos de programa`, el programa guarda la base de datos (`workshop-db.json`), la sesión vinculada de WhatsApp y tu `.env` en:
 `%APPDATA%\Teknovant Labs Taller\data\`
-
-Si quieres configurar tu `GEMINI_API_KEY` en el programa instalado, crea o edita el archivo:
 `%APPDATA%\Teknovant Labs Taller\.env`
-
----
-
-## Nota sobre conexión a Internet
-- Las órdenes, remisiones, inventario, punto de venta, tickets térmicos y facturas PDF funcionan de forma local en tu PC.
-- El **Cotizador IA (Gemini)** y el **envío por WhatsApp** requieren que la PC tenga conexión a internet al momento de usarlos.

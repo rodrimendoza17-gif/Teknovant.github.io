@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, dialog, shell } = require('electron');
 const fs = require('fs');
 const http = require('http');
 const net = require('net');
@@ -68,7 +68,8 @@ function ensureUserEnvFile(userDataDir, appRoot) {
   return userEnv;
 }
 
-async function createDesktopWindow(port) {
+async function createDesktopWindow(port, appRoot) {
+  const iconPath = path.join(appRoot, 'public', 'icon.ico');
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 860,
@@ -77,6 +78,7 @@ async function createDesktopWindow(port) {
     title: 'Teknovant Labs — Administrador de Taller',
     backgroundColor: '#070b14',
     autoHideMenuBar: true,
+    ...(fs.existsSync(iconPath) ? { icon: iconPath } : {}),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -109,27 +111,35 @@ if (!gotSingleLock) {
   });
 
   app.whenReady().then(async () => {
-    const appRoot = app.getAppPath();
-    const userDataDir = app.getPath('userData');
-    const dataDir = path.join(userDataDir, 'data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    try {
+      const appRoot = app.getAppPath();
+      const userDataDir = app.getPath('userData');
+      const dataDir = path.join(userDataDir, 'data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+
+      const envPath = ensureUserEnvFile(userDataDir, appRoot);
+      const port = await findAvailablePort(3000);
+
+      process.env.NODE_ENV = 'production';
+      process.env.HOST = '127.0.0.1';
+      process.env.PORT = String(port);
+      process.env.TEKNOVANT_DATA_DIR = dataDir;
+      process.env.TEKNOVANT_DIST_DIR = path.join(appRoot, 'dist');
+      process.env.TEKNOVANT_ENV_PATH = envPath;
+
+      const bundledServerPath = path.join(appRoot, 'dist-server', 'server.mjs');
+      await import(pathToFileURL(bundledServerPath).href);
+      await waitForServer(port);
+      await createDesktopWindow(port, appRoot);
+    } catch (err) {
+      dialog.showErrorBox(
+        'Error al iniciar Teknovant Labs',
+        err instanceof Error ? err.stack || err.message : String(err)
+      );
+      app.quit();
     }
-
-    const envPath = ensureUserEnvFile(userDataDir, appRoot);
-    const port = await findAvailablePort(3000);
-
-    process.env.NODE_ENV = 'production';
-    process.env.HOST = '127.0.0.1';
-    process.env.PORT = String(port);
-    process.env.TEKNOVANT_DATA_DIR = dataDir;
-    process.env.TEKNOVANT_DIST_DIR = path.join(appRoot, 'dist');
-    process.env.TEKNOVANT_ENV_PATH = envPath;
-
-    const bundledServerPath = path.join(appRoot, 'dist-server', 'server.mjs');
-    await import(pathToFileURL(bundledServerPath).href);
-    await waitForServer(port);
-    await createDesktopWindow(port);
   });
 
   app.on('window-all-closed', () => {

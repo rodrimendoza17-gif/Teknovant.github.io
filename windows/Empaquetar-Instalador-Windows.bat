@@ -1,10 +1,10 @@
 @echo off
-title Empaquetador Teknovant Labs (.exe y .msi para Windows)
+title Empaquetador Teknovant Labs (.EXE y .MSI para Windows)
 cd /d "%~dp0.."
 
 where node >nul 2>&1
 if errorlevel 1 (
-  echo [ERROR] Necesitas Node.js v22+ instalado para compilar el programa de Windows.
+  echo [ERROR] Necesitas Node.js v22+ instalado para compilar el .EXE de Windows.
   echo Descargalo desde https://nodejs.org/
   pause
   exit /b 1
@@ -18,7 +18,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [2/4] Instalando herramientas Electron para Windows...
+echo [2/4] Instalando herramientas Electron para generar .EXE...
 call npm install --no-save electron electron-builder
 if errorlevel 1 (
   echo [ERROR] No se pudo instalar electron / electron-builder.
@@ -26,7 +26,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [3/4] Compilando web y servidor interno...
+echo [3/4] Compilando interfaz web y servidor interno...
 call npm run build:desktop
 if errorlevel 1 (
   echo [ERROR] Fallo la compilacion.
@@ -34,8 +34,8 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [4/4] Generando instaladores .exe y .msi en la carpeta release\ ...
-call npx electron-builder --win nsis msi --x64 --config electron-builder.yml
+echo [4/4] Generando .EXE Instalador, .EXE Portable y .MSI en release\ ...
+call npx electron-builder --win nsis portable msi --x64 --config electron-builder.yml
 if errorlevel 1 (
   echo [ERROR] Fallo electron-builder.
   pause
@@ -44,7 +44,10 @@ if errorlevel 1 (
 
 echo.
 echo ============================================================
-echo  LISTO! Tus instaladores estan en la carpeta: release\
+echo  LISTO! Tus archivos generados estan en la carpeta release\:
+echo   - Teknovant Labs Taller Setup 1.0.0.exe (Instalador)
+echo   - Teknovant-Labs-Taller-Portable.exe     (1 solo archivo)
+echo   - Teknovant Labs Taller 1.0.0.msi        (Paquete MSI)
 echo ============================================================
 if exist "release" start "" "release"
 pause
