@@ -11,6 +11,7 @@ import type {
   ServiceItem,
   StatusNotification,
   OrderStatus,
+  WhatsAppDispatchLog,
 } from '../src/types/workshop.ts';
 import {
   DEFAULT_SETTINGS,
@@ -32,6 +33,7 @@ export interface WorkshopDB {
   posSales: POSSale[];
   services: ServiceItem[];
   notifications: StatusNotification[];
+  whatsappMessages: WhatsAppDispatchLog[];
 }
 
 const DATA_DIR = process.env.TEKNOVANT_DATA_DIR
@@ -103,6 +105,7 @@ function createInitialDB(): WorkshopDB {
         readByClient: false,
       },
     ],
+    whatsappMessages: [],
   };
 }
 
@@ -140,6 +143,7 @@ export function loadDB(): WorkshopDB {
       posSales: Array.isArray(parsed.posSales) ? parsed.posSales : seed.posSales,
       services: Array.isArray(parsed.services) ? parsed.services : seed.services,
       notifications: Array.isArray(parsed.notifications) ? parsed.notifications : seed.notifications,
+      whatsappMessages: Array.isArray(parsed.whatsappMessages) ? parsed.whatsappMessages : [],
     };
     return cachedDB;
   } catch (err) {
@@ -345,4 +349,44 @@ export function resetServerDB(): WorkshopDB {
   fresh.adminPasswordHash = existing.adminPasswordHash;
   saveDB(fresh);
   return fresh;
+}
+
+export function getWhatsAppMessageLogs(): WhatsAppDispatchLog[] {
+  const db = loadDB();
+  return db.whatsappMessages || [];
+}
+
+export function appendWhatsAppMessageLog(entry: WhatsAppDispatchLog): WhatsAppDispatchLog[] {
+  const db = loadDB();
+  const existing = Array.isArray(db.whatsappMessages) ? db.whatsappMessages : [];
+  db.whatsappMessages = [entry, ...existing.filter((item) => item.id !== entry.id)].slice(0, 500);
+  saveDB(db);
+  return db.whatsappMessages;
+}
+
+export function updateWhatsAppMessageLogByExternalId(
+  externalMessageId: string,
+  patch: Partial<WhatsAppDispatchLog>
+): boolean {
+  const db = loadDB();
+  const list = Array.isArray(db.whatsappMessages) ? db.whatsappMessages : [];
+  const target = list.find((item) => item.externalMessageId === externalMessageId);
+  if (!target) return false;
+  Object.assign(target, patch);
+  saveDB(db);
+  return true;
+}
+
+export function deleteWhatsAppMessageLog(logId: string): WhatsAppDispatchLog[] {
+  const db = loadDB();
+  db.whatsappMessages = (db.whatsappMessages || []).filter((item) => item.id !== logId);
+  saveDB(db);
+  return db.whatsappMessages;
+}
+
+export function clearWhatsAppMessageLogs(): WhatsAppDispatchLog[] {
+  const db = loadDB();
+  db.whatsappMessages = [];
+  saveDB(db);
+  return db.whatsappMessages;
 }

@@ -67,7 +67,10 @@ import {
   startWhatsAppQRSession,
   startWhatsAppPairingSession,
   logoutWhatsAppSession,
+  repairWhatsAppSignalSessions,
   sendWhatsAppDirectMessage,
+  removeWhatsAppHistoryEntry,
+  wipeWhatsAppHistory,
   subscribeWhatsAppStatus,
   initWhatsAppIfLinked,
 } from './server/whatsapp.ts';
@@ -178,9 +181,10 @@ function broadcastNotification(notification: StatusNotification) {
 }
 
 function broadcastWhatsAppStatus(whatsapp: WhatsAppSessionState) {
+  const { logs } = getWhatsAppStatus();
   for (const client of wsClients) {
     if (client.user.role === 'admin') {
-      sendWsPayload(client.ws, { type: 'whatsapp:status', whatsapp });
+      sendWsPayload(client.ws, { type: 'whatsapp:status', whatsapp, whatsappLogs: logs });
     }
   }
 }
@@ -1627,6 +1631,31 @@ app.post('/api/whatsapp/logout', requireAdmin, async (_req, res) => {
   }
 });
 
+app.post('/api/whatsapp/repair-sessions', requireAdmin, async (_req, res) => {
+  try {
+    await repairWhatsAppSignalSessions();
+    res.json(getWhatsAppStatus());
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'No se pudieron reparar las sesiones Signal de WhatsApp.';
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.delete('/api/whatsapp/history/:id', requireAdmin, (req, res) => {
+  const id = typeof req.params?.id === 'string' ? req.params.id.trim() : '';
+  if (!id) {
+    res.status(400).json({ error: 'ID de registro requerido.' });
+    return;
+  }
+  removeWhatsAppHistoryEntry(id);
+  res.json(getWhatsAppStatus());
+});
+
+app.delete('/api/whatsapp/history', requireAdmin, (_req, res) => {
+  wipeWhatsAppHistory();
+  res.json(getWhatsAppStatus());
+});
+
 app.post('/api/whatsapp/send', requireAdmin, async (req, res) => {
   const toPhone = typeof req.body?.toPhone === 'string' ? req.body.toPhone.trim() : '';
   const clientName = typeof req.body?.clientName === 'string' ? req.body.clientName.trim() : 'Cliente';
@@ -1662,7 +1691,7 @@ app.post('/api/whatsapp/send', requireAdmin, async (req, res) => {
     res.json({ ok: true, log, logs: getWhatsAppStatus().logs });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error al enviar el mensaje por WhatsApp.';
-    const status = msg.includes('no está conectado') ? 409 : 400;
+    const status = msg.includes('no está conectada') ? 409 : 400;
     res.status(status).json({ error: msg, logs: getWhatsAppStatus().logs });
   }
 });

@@ -292,6 +292,22 @@ export const api = {
       method: 'POST',
     }),
 
+  repairWhatsAppSessions: () =>
+    apiRequest<{ session: WhatsAppSessionState; logs: WhatsAppDispatchLog[] }>('/api/whatsapp/repair-sessions', {
+      method: 'POST',
+    }),
+
+  deleteWhatsAppHistoryItem: (logId: string) =>
+    apiRequest<{ session: WhatsAppSessionState; logs: WhatsAppDispatchLog[] }>(
+      `/api/whatsapp/history/${encodeURIComponent(logId)}`,
+      { method: 'DELETE' }
+    ),
+
+  clearWhatsAppHistory: () =>
+    apiRequest<{ session: WhatsAppSessionState; logs: WhatsAppDispatchLog[] }>('/api/whatsapp/history', {
+      method: 'DELETE',
+    }),
+
   sendWhatsAppMessage: (payload: {
     toPhone: string;
     clientName: string;
@@ -310,6 +326,7 @@ export interface WSMessage {
   notification?: StatusNotification;
   data?: AdminBootstrapPayload | ClientDashboardPayload;
   whatsapp?: WhatsAppSessionState;
+  whatsappLogs?: WhatsAppDispatchLog[];
 }
 
 export function connectRealtimeWS(

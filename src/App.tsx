@@ -20,7 +20,7 @@ import {
   ServiceItem,
   StatusNotification,
   WhatsAppSessionState,
-  WhatsAppDispatchLog
+  WhatsAppDispatchLog,
 } from './types/workshop';
 import {
   api,
@@ -212,6 +212,9 @@ export default function App() {
         applyClientDashboard(msg.data as ClientDashboardPayload);
       } else if (msg.type === 'whatsapp:status' && currentUser.role === 'admin' && msg.whatsapp) {
         setWhatsappSession(msg.whatsapp);
+        if (Array.isArray(msg.whatsappLogs)) {
+          setWhatsappLogs(msg.whatsappLogs);
+        }
       }
     });
 
@@ -383,19 +386,46 @@ export default function App() {
     setWhatsappLogs(res.logs);
   };
 
-  const handleSendWhatsApp = async (payload: SendWhatsAppPayload) => {
+  const handleRepairWhatsAppSessions = async () => {
+    const res = await api.repairWhatsAppSessions();
+    setWhatsappSession(res.session);
+    setWhatsappLogs(res.logs);
+  };
+
+  const handleDeleteWhatsAppHistoryItem = async (logId: string) => {
+    const res = await api.deleteWhatsAppHistoryItem(logId);
+    setWhatsappSession(res.session);
+    setWhatsappLogs(res.logs);
+  };
+
+  const handleClearWhatsAppHistory = async () => {
+    const res = await api.clearWhatsAppHistory();
+    setWhatsappSession(res.session);
+    setWhatsappLogs(res.logs);
+  };
+
+  const handleSendWhatsAppDirect = async (payload: SendWhatsAppPayload): Promise<WhatsAppDispatchLog> => {
     try {
       const res = await api.sendWhatsAppMessage(payload);
       setWhatsappLogs(res.logs);
+      const isDelivered =
+        res.log.deliveryStatus === 'delivered' || res.log.deliveryStatus === 'read';
       showQuickToast(
-        `WhatsApp Enviado (${payload.referenceNumber || payload.category.toUpperCase()})`,
-        `Mensaje entregado a ${payload.clientName} (${res.log.toPhone}).`
+        `WhatsApp (${payload.referenceNumber || payload.category.toUpperCase()})`,
+        isDelivered
+          ? `Mensaje entregado (✓✓) a ${payload.clientName} (${res.log.toPhone}).`
+          : `Aceptado por el servidor (✓) para ${payload.clientName} (${res.log.toPhone}). Revisa el historial para confirmar ✓✓.`
       );
+      return res.log;
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Error enviando mensaje por WhatsApp.';
       showQuickToast('Error al Enviar WhatsApp', errMsg);
       throw err;
     }
+  };
+
+  const handleSendWhatsApp = async (payload: SendWhatsAppPayload): Promise<void> => {
+    await handleSendWhatsAppDirect(payload);
   };
 
   // Auth loading splash
@@ -440,6 +470,7 @@ export default function App() {
   }
 
   const lowStockCount = merchandise.filter(m => m.stock <= m.minStock).length;
+  const isWhatsAppConnected = whatsappSession.status === 'connected';
 
   return (
     <div className="min-h-screen flex flex-col bg-[#070b14] cyber-grid text-zinc-100 selection:bg-cyan-500 selection:text-black">
@@ -459,7 +490,7 @@ export default function App() {
         onMarkNotificationsRead={handleMarkAdminNotificationsRead}
         user={currentUser}
         onLogout={handleLogout}
-        whatsappConnected={whatsappSession.status === 'connected'}
+        whatsappConnected={isWhatsAppConnected}
       />
 
       {/* Real-time WebSocket Toast Banner */}
@@ -542,7 +573,7 @@ export default function App() {
                 order: ord
               });
             }}
-            whatsappConnected={whatsappSession.status === 'connected'}
+            whatsappConnected={isWhatsAppConnected}
             onSendWhatsApp={handleSendWhatsApp}
           />
         )}
@@ -605,7 +636,7 @@ export default function App() {
             }}
             initialDraft={quoteDraft}
             onClearDraft={() => setQuoteDraft(null)}
-            whatsappConnected={whatsappSession.status === 'connected'}
+            whatsappConnected={isWhatsAppConnected}
             onSendWhatsApp={handleSendWhatsApp}
           />
         )}
@@ -623,7 +654,7 @@ export default function App() {
               });
             }}
             onDeleteInvoice={handleDeleteInvoice}
-            whatsappConnected={whatsappSession.status === 'connected'}
+            whatsappConnected={isWhatsAppConnected}
             onSendWhatsApp={handleSendWhatsApp}
           />
         )}
@@ -640,8 +671,11 @@ export default function App() {
             onConnectQR={handleConnectWhatsAppQR}
             onConnectPairing={handleConnectWhatsAppPairing}
             onLogout={handleLogoutWhatsApp}
+            onRepairSessions={handleRepairWhatsAppSessions}
+            onDeleteHistoryItem={handleDeleteWhatsAppHistoryItem}
+            onClearHistory={handleClearWhatsAppHistory}
             onRefreshStatus={handleRefreshWhatsAppStatus}
-            onSendDirect={handleSendWhatsApp}
+            onSendDirect={handleSendWhatsAppDirect}
           />
         )}
 
@@ -697,7 +731,7 @@ export default function App() {
             setShowOrderModal(true);
           }}
           onClose={() => setSelectedOrderForDetail(null)}
-          whatsappConnected={whatsappSession.status === 'connected'}
+          whatsappConnected={isWhatsAppConnected}
           onSendWhatsApp={handleSendWhatsApp}
         />
       )}

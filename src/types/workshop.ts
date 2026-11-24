@@ -344,12 +344,16 @@ export interface WhatsAppSessionState {
 
 export interface WhatsAppDispatchLog {
   id: string;
+  direction?: 'outbound' | 'inbound';
   toPhone: string;
   clientName: string;
-  category: 'cotizacion' | 'factura' | 'seguimiento' | 'manual';
+  category: 'cotizacion' | 'factura' | 'seguimiento' | 'manual' | 'entrante';
   referenceNumber?: string;
   messagePreview: string;
-  status: 'sent' | 'failed';
+  fullMessage?: string;
+  status: 'sent' | 'failed' | 'received';
+  deliveryStatus?: 'server_ack' | 'delivered' | 'read' | 'failed' | 'received';
+  externalMessageId?: string;
   error?: string;
   sentAt: string;
 }
