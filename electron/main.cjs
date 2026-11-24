@@ -55,12 +55,12 @@ function waitForServer(port, timeoutMs = 20000) {
 
 app.setName('Teknovant Labs Taller');
 
-function envHasGeminiKey(filePath) {
+function envHasAnyAIKey(filePath) {
   try {
     if (!fs.existsSync(filePath)) return false;
     if (fs.statSync(filePath).isDirectory()) return false;
     const raw = fs.readFileSync(filePath, 'utf-8');
-    return /GEMINI_API_KEY\s*=\s*["']?[A-Za-z0-9_\-.]{10,}["']?/.test(raw);
+    return /(GEMINI_API_KEY|GROQ_API_KEY|OPENAI_API_KEY|OPENROUTER_API_KEY|ANTHROPIC_API_KEY|DEEPSEEK_API_KEY|CUSTOM_AI_BASE_URL)\s*=\s*["']?[^\s"']{6,}["']?/.test(raw);
   } catch {
     return false;
   }
@@ -79,7 +79,7 @@ function ensureUserEnvFile(userDataDir, appRoot) {
   candidates.push(path.join(appRoot, '.env'));
 
   for (const c of candidates) {
-    if (envHasGeminiKey(c)) return c;
+    if (envHasAnyAIKey(c)) return c;
   }
 
   const userEnv = path.join(userDataDir, '.env');

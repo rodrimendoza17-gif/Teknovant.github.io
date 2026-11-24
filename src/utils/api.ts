@@ -76,10 +76,25 @@ export interface ClientDashboardPayload {
   notifications: StatusNotification[];
 }
 
+export type AIProviderId =
+  | 'gemini'
+  | 'claude'
+  | 'openai'
+  | 'groq'
+  | 'openrouter'
+  | 'deepseek'
+  | 'custom';
+
 export interface AIProvidersStatus {
-  claude: boolean;
   gemini: boolean;
-  defaultProvider: 'claude' | 'gemini' | 'none';
+  claude: boolean;
+  openai: boolean;
+  groq: boolean;
+  openrouter: boolean;
+  deepseek: boolean;
+  custom: boolean;
+  availableProviders: AIProviderId[];
+  defaultProvider: AIProviderId | 'none';
 }
 
 export const api = {
@@ -233,7 +248,7 @@ export const api = {
       method: 'POST',
     }),
 
-  // AI Market Quote (Claude + Gemini)
+  // AI Market Quote (Universal Multi-Provider)
   getAIProviders: () => apiRequest<AIProvidersStatus>('/api/ai/providers'),
 
   requestMarketQuote: (payload: {
@@ -244,12 +259,12 @@ export const api = {
     currency?: string;
     knownPartCost?: number | null;
     workshopName?: string;
-    provider?: 'auto' | 'claude' | 'gemini';
+    provider?: 'auto' | AIProviderId;
   }) =>
     apiRequest<{
       quoteAnalysis: unknown;
       sources?: { title: string; url: string }[];
-      providerUsed?: 'claude' | 'gemini';
+      providerUsed?: AIProviderId;
       modelUsed?: string;
       generatedAt?: string;
     }>('/api/ai/market-quote', {

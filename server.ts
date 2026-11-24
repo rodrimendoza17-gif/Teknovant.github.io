@@ -76,6 +76,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '5mb' }));
@@ -216,13 +217,14 @@ function broadcastStateRefresh(affectedPhone?: string, affectedEmail?: string) {
 }
 
 // -------------------------------------------------------------------
-// AI PROVIDERS (ANTHROPIC CLAUDE + GOOGLE GEMINI)
+// AI PROVIDERS (UNIVERSAL: GEMINI, GROQ, OPENAI, OPENROUTER, CLAUDE, DEEPSEEK, CUSTOM/OLLAMA)
 // -------------------------------------------------------------------
-function getGeminiClient() {
+type AIProviderId = 'gemini' | 'claude' | 'openai' | 'groq' | 'openrouter' | 'deepseek' | 'custom';
+
+function getGeminiClient(useVertexAi = false) {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) return null;
-  const isVertexExpressKey = apiKey.startsWith('AQ.');
-  if (isVertexExpressKey) {
+  if (useVertexAi) {
     return new GoogleGenAI({
       apiKey,
       vertexai: true,
@@ -239,11 +241,51 @@ function getGeminiClient() {
 }
 
 function hasClaudeKey(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.trim());
+  return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
 }
 
 function hasGeminiKey(): boolean {
-  return Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim());
+  return Boolean(process.env.GEMINI_API_KEY?.trim());
+}
+
+function hasOpenAIKey(): boolean {
+  return Boolean(process.env.OPENAI_API_KEY?.trim());
+}
+
+function hasGroqKey(): boolean {
+  return Boolean(process.env.GROQ_API_KEY?.trim());
+}
+
+function hasOpenRouterKey(): boolean {
+  return Boolean(process.env.OPENROUTER_API_KEY?.trim());
+}
+
+function hasDeepSeekKey(): boolean {
+  return Boolean(process.env.DEEPSEEK_API_KEY?.trim());
+}
+
+function hasCustomAI(): boolean {
+  return Boolean(process.env.CUSTOM_AI_BASE_URL?.trim());
+}
+
+function getAvailableAIProviders(): AIProviderId[] {
+  const list: AIProviderId[] = [];
+  if (hasGeminiKey()) list.push('gemini');
+  if (hasGroqKey()) list.push('groq');
+  if (hasOpenAIKey()) list.push('openai');
+  if (hasOpenRouterKey()) list.push('openrouter');
+  if (hasClaudeKey()) list.push('claude');
+  if (hasDeepSeekKey()) list.push('deepseek');
+  if (hasCustomAI()) list.push('custom');
+  return list;
+}
+
+function getDefaultAIProvider(): AIProviderId | 'none' {
+  const available = getAvailableAIProviders();
+  if (available.length === 0) return 'none';
+  const preferred = process.env.AI_PROVIDER?.trim().toLowerCase() as AIProviderId | undefined;
+  if (preferred && available.includes(preferred)) return preferred;
+  return available[0];
 }
 
 interface MarketQuoteRequest {
@@ -254,7 +296,7 @@ interface MarketQuoteRequest {
   currency?: string;
   knownPartCost?: number | null;
   workshopName?: string;
-  provider?: 'auto' | 'claude' | 'gemini';
+  provider?: 'auto' | AIProviderId;
 }
 
 function extractJsonFromText(text: string): unknown {
@@ -283,12 +325,12 @@ async function callClaudeMarketQuote(
   systemInstruction: string,
   userPrompt: string
 ): Promise<{ rawText: string; modelUsed: string }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) {
     throw new Error('No se encontró ANTHROPIC_API_KEY configurada en el servidor.');
   }
 
-  const modelName = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-latest';
+  const modelName = process.env.ANTHROPIC_MODEL?.trim() || 'claude-3-5-sonnet-latest';
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -325,6 +367,158 @@ async function callClaudeMarketQuote(
   }
 
   return { rawText: textBlock.text, modelUsed: modelName };
+}
+
+async function callOpenAICompatibleMarketQuote(options: {
+  providerLabel: string;
+  baseUrl: string;
+  apiKey?: string;
+  model: string;
+  systemInstruction: string;
+  userPrompt: string;
+  extraHeaders?: Record<string, string>;
+}): Promise<{ rawText: string; modelUsed: string }> {
+  const normalizedBase = options.baseUrl.replace(/\/+$/, '');
+  const endpoint = normalizedBase.endsWith('/chat/completions')
+    ? normalizedBase
+    : `${normalizedBase}/chat/completions`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.extraHeaders || {}),
+  };
+  if (options.apiKey && options.apiKey.trim()) {
+    headers.Authorization = `Bearer ${options.apiKey.trim()}`;
+  }
+
+  const sendRequest = async (useJsonFormat: boolean) => {
+    const body: Record<string, unknown> = {
+      model: options.model,
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: options.systemInstruction },
+        { role: 'user', content: options.userPrompt },
+      ],
+    };
+    if (useJsonFormat) {
+      body.response_format = { type: 'json_object' };
+    }
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    const payload = (await res.json().catch(() => ({}))) as {
+      error?: { message?: string; code?: string | number };
+      choices?: Array<{ message?: { content?: string | null } }>;
+    };
+    return { res, payload };
+  };
+
+  let { res, payload } = await sendRequest(true);
+  if (!res.ok && res.status === 400) {
+    // Some OpenAI-compatible / local Ollama models reject response_format
+    ({ res, payload } = await sendRequest(false));
+  }
+
+  if (!res.ok) {
+    const detail = payload.error?.message || `Error HTTP ${res.status} en ${options.providerLabel}`;
+    throw new Error(`${options.providerLabel} (${res.status}): ${detail}`);
+  }
+
+  const rawText = payload.choices?.[0]?.message?.content;
+  if (!rawText || !rawText.trim()) {
+    throw new Error(`${options.providerLabel} no devolvió texto válido.`);
+  }
+
+  return { rawText, modelUsed: options.model };
+}
+
+async function callProviderMarketQuote(
+  provider: AIProviderId,
+  systemInstruction: string,
+  userPrompt: string
+): Promise<{
+  rawText: string;
+  modelUsed: string;
+  sources: Array<{ title: string; url: string }>;
+}> {
+  if (provider === 'gemini') {
+    return callGeminiMarketQuote(systemInstruction, userPrompt);
+  }
+  if (provider === 'claude') {
+    const res = await callClaudeMarketQuote(systemInstruction, userPrompt);
+    return { ...res, sources: [] };
+  }
+  if (provider === 'openai') {
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) throw new Error('No se encontró OPENAI_API_KEY configurada.');
+    const res = await callOpenAICompatibleMarketQuote({
+      providerLabel: 'OpenAI',
+      baseUrl: process.env.OPENAI_BASE_URL?.trim() || 'https://api.openai.com/v1',
+      apiKey,
+      model: process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini',
+      systemInstruction,
+      userPrompt,
+    });
+    return { ...res, sources: [] };
+  }
+  if (provider === 'groq') {
+    const apiKey = process.env.GROQ_API_KEY?.trim();
+    if (!apiKey) throw new Error('No se encontró GROQ_API_KEY configurada.');
+    const res = await callOpenAICompatibleMarketQuote({
+      providerLabel: 'Groq',
+      baseUrl: 'https://api.groq.com/openai/v1',
+      apiKey,
+      model: process.env.GROQ_MODEL?.trim() || 'llama-3.3-70b-versatile',
+      systemInstruction,
+      userPrompt,
+    });
+    return { ...res, sources: [] };
+  }
+  if (provider === 'openrouter') {
+    const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+    if (!apiKey) throw new Error('No se encontró OPENROUTER_API_KEY configurada.');
+    const res = await callOpenAICompatibleMarketQuote({
+      providerLabel: 'OpenRouter',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      apiKey,
+      model: process.env.OPENROUTER_MODEL?.trim() || 'meta-llama/llama-3.3-70b-instruct:free',
+      systemInstruction,
+      userPrompt,
+      extraHeaders: {
+        'X-Title': 'Teknovant Labs Taller',
+      },
+    });
+    return { ...res, sources: [] };
+  }
+  if (provider === 'deepseek') {
+    const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
+    if (!apiKey) throw new Error('No se encontró DEEPSEEK_API_KEY configurada.');
+    const res = await callOpenAICompatibleMarketQuote({
+      providerLabel: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com/v1',
+      apiKey,
+      model: process.env.DEEPSEEK_MODEL?.trim() || 'deepseek-chat',
+      systemInstruction,
+      userPrompt,
+    });
+    return { ...res, sources: [] };
+  }
+  // custom (Ollama, LM Studio, Mistral, Together, any OpenAI-compatible endpoint)
+  const customBaseUrl = process.env.CUSTOM_AI_BASE_URL?.trim();
+  if (!customBaseUrl) {
+    throw new Error('No se encontró CUSTOM_AI_BASE_URL configurada.');
+  }
+  const res = await callOpenAICompatibleMarketQuote({
+    providerLabel: 'IA Personalizada',
+    baseUrl: customBaseUrl,
+    apiKey: process.env.CUSTOM_AI_API_KEY?.trim(),
+    model: process.env.CUSTOM_AI_MODEL?.trim() || 'llama3.2',
+    systemInstruction,
+    userPrompt,
+  });
+  return { ...res, sources: [] };
 }
 
 function isQuotaOrRateLimitError(err: unknown): boolean {
@@ -376,61 +570,78 @@ async function callGeminiMarketQuote(
     };
   }
 
-  const isVertexExpressKey = Boolean(process.env.GEMINI_API_KEY?.trim().startsWith('AQ.'));
+  const apiKey = process.env.GEMINI_API_KEY?.trim() || '';
 
   const attempts: Array<{
     model: string;
     useSearch: boolean;
     thinkingLevel?: ThinkingLevel;
     delayBeforeMs: number;
-  }> = isVertexExpressKey
-    ? [
-        {
-          model: 'gemini-2.5-flash',
-          useSearch: true,
-          delayBeforeMs: 0,
-        },
-        {
-          model: 'gemini-2.5-flash',
-          useSearch: false,
-          delayBeforeMs: 900,
-        },
-      ]
-    : [
-        {
-          model: 'gemini-4-hydrogen',
-          useSearch: true,
-          thinkingLevel: ThinkingLevel.LOW,
-          delayBeforeMs: 0,
-        },
-        {
-          model: 'gemini-4-hydrogen',
-          useSearch: false,
-          thinkingLevel: ThinkingLevel.LOW,
-          delayBeforeMs: 900,
-        },
-        {
-          model: 'gemini-3.1-flash-lite',
-          useSearch: false,
-          thinkingLevel: ThinkingLevel.MINIMAL,
-          delayBeforeMs: 1400,
-        },
-        {
-          model: 'gemini-2.5-flash',
-          useSearch: false,
-          delayBeforeMs: 1400,
-        },
-      ];
+    useVertexAi?: boolean;
+  }> = [
+    {
+      model: 'gemini-4-hydrogen',
+      useSearch: true,
+      thinkingLevel: ThinkingLevel.LOW,
+      delayBeforeMs: 0,
+    },
+    {
+      model: 'gemini-4-hydrogen',
+      useSearch: false,
+      thinkingLevel: ThinkingLevel.LOW,
+      delayBeforeMs: 900,
+    },
+    {
+      model: 'gemini-3.1-flash-lite',
+      useSearch: false,
+      thinkingLevel: ThinkingLevel.MINIMAL,
+      delayBeforeMs: 900,
+    },
+    {
+      model: 'gemini-2.5-flash',
+      useSearch: true,
+      delayBeforeMs: 900,
+    },
+    {
+      model: 'gemini-2.5-flash',
+      useSearch: false,
+      delayBeforeMs: 900,
+    },
+  ];
+
+  if (apiKey.startsWith('AQ.')) {
+    attempts.push(
+      {
+        model: 'gemini-2.5-flash',
+        useSearch: true,
+        delayBeforeMs: 300,
+        useVertexAi: true,
+      },
+      {
+        model: 'gemini-2.5-flash',
+        useSearch: false,
+        delayBeforeMs: 500,
+        useVertexAi: true,
+      }
+    );
+  }
 
   let lastError: unknown = null;
+  const overloadedModels = new Set<string>();
 
   for (const attempt of attempts) {
+    if (overloadedModels.has(attempt.model)) {
+      continue;
+    }
     if (attempt.delayBeforeMs > 0) {
       await sleep(attempt.delayBeforeMs);
     }
 
+    const client = attempt.useVertexAi ? getGeminiClient(true) : ai;
+    if (!client) continue;
+
     try {
-      const response = await ai.models.generateContent({
+      const response = await client.models.generateContent({
         model: attempt.model,
         contents: userPrompt,
         config: {
@@ -474,19 +685,33 @@ async function callGeminiMarketQuote(
     } catch (err) {
       lastError = err;
       const rawMsg = err instanceof Error ? err.message : String(err);
-      const isApiKeyInvalid = rawMsg.includes('API_KEY_INVALID') || rawMsg.includes('API key not valid');
+      const lowerMsg = rawMsg.toLowerCase();
+      const isApiKeyInvalid = rawMsg.includes('API_KEY_INVALID') || lowerMsg.includes('api key not valid');
+      const canTryVertexFallback = apiKey.startsWith('AQ.') && !attempt.useVertexAi;
+      const isOverloaded =
+        rawMsg.includes('503') ||
+        rawMsg.includes('UNAVAILABLE') ||
+        lowerMsg.includes('high demand');
+      if (isOverloaded) {
+        overloadedModels.add(attempt.model);
+      }
+      const isModelUnavailable =
+        rawMsg.includes('NOT_FOUND') ||
+        rawMsg.includes('404') ||
+        lowerMsg.includes('not found') ||
+        lowerMsg.includes('not supported');
       const isTransientOrToolFallback =
-        !isApiKeyInvalid &&
+        (!isApiKeyInvalid || canTryVertexFallback) &&
         (attempt.useSearch ||
+          canTryVertexFallback ||
           isQuotaOrRateLimitError(err) ||
-          rawMsg.includes('503') ||
-          rawMsg.includes('UNAVAILABLE') ||
-          rawMsg.includes('NOT_FOUND'));
+          isOverloaded ||
+          isModelUnavailable);
       if (!isTransientOrToolFallback) {
         throw err;
       }
-      console.warn(
-        `Gemini attempt (${attempt.model}, search=${attempt.useSearch}) failed (${rawMsg.slice(0, 140)}), trying fallback...`
+      console.log(
+        `Gemini fallback from ${attempt.model} (search=${attempt.useSearch}, vertex=${Boolean(attempt.useVertexAi)}) to next model.`
       );
     }
   }
@@ -500,10 +725,13 @@ async function callGeminiMarketQuote(
 // HEALTH & AUTH ENDPOINTS
 // -------------------------------------------------------------------
 app.get('/api/health', (_req, res) => {
+  const availableAIProviders = getAvailableAIProviders();
   res.json({
     ok: true,
     hasGeminiKey: hasGeminiKey(),
     hasClaudeKey: hasClaudeKey(),
+    hasAnyAIKey: availableAIProviders.length > 0,
+    availableAIProviders,
   });
 });
 
@@ -1128,13 +1356,20 @@ app.post('/api/client/notifications/read', requireAuth, (req: AuthenticatedReque
 });
 
 // -------------------------------------------------------------------
-// AI MARKET QUOTER (CLAUDE + GEMINI)
+// AI MARKET QUOTER (UNIVERSAL MULTI-PROVIDER)
 // -------------------------------------------------------------------
 app.get('/api/ai/providers', requireAdmin, (_req, res) => {
+  const availableProviders = getAvailableAIProviders();
   res.json({
-    claude: hasClaudeKey(),
     gemini: hasGeminiKey(),
-    defaultProvider: hasGeminiKey() ? 'gemini' : hasClaudeKey() ? 'claude' : 'none',
+    claude: hasClaudeKey(),
+    openai: hasOpenAIKey(),
+    groq: hasGroqKey(),
+    openrouter: hasOpenRouterKey(),
+    deepseek: hasDeepSeekKey(),
+    custom: hasCustomAI(),
+    availableProviders,
+    defaultProvider: getDefaultAIProvider(),
   });
 });
 
@@ -1164,35 +1399,30 @@ app.post('/api/ai/market-quote', requireAdmin, async (req, res) => {
     return;
   }
 
-  let chosenProvider: 'claude' | 'gemini' | null = null;
-  if (requestedProvider === 'claude') {
-    if (!hasClaudeKey()) {
-      res.status(503).json({
-        error:
-          'Claude API no está disponible porque falta ANTHROPIC_API_KEY en Settings > Secrets del servidor.',
-      });
-      return;
-    }
-    chosenProvider = 'claude';
-  } else if (requestedProvider === 'gemini') {
-    if (!hasGeminiKey()) {
-      res.status(503).json({
-        error:
-          'Gemini API no está disponible porque falta GEMINI_API_KEY en Settings > Secrets del servidor.',
-      });
-      return;
-    }
-    chosenProvider = 'gemini';
-  } else {
-    chosenProvider = hasGeminiKey() ? 'gemini' : hasClaudeKey() ? 'claude' : null;
-  }
-
-  if (!chosenProvider) {
+  const available = getAvailableAIProviders();
+  if (available.length === 0) {
     res.status(503).json({
       error:
-        'No hay llaves de IA configuradas en el servidor (ANTHROPIC_API_KEY o GEMINI_API_KEY). Agrégalas en Settings > Secrets.',
+        'No hay ninguna API de IA configurada en .env (puedes usar Gemini, Groq gratis, OpenAI, OpenRouter, Claude, DeepSeek u Ollama/Custom con windows\\Configurar-API-IA.bat).',
     });
     return;
+  }
+
+  let providerChain: AIProviderId[] = [];
+  if (requestedProvider === 'auto') {
+    const preferred = getDefaultAIProvider();
+    providerChain =
+      preferred !== 'none'
+        ? [preferred, ...available.filter((p) => p !== preferred)]
+        : available;
+  } else {
+    if (!available.includes(requestedProvider)) {
+      res.status(503).json({
+        error: `El proveedor de IA "${requestedProvider}" no tiene su clave/URL configurada en .env.`,
+      });
+      return;
+    }
+    providerChain = [requestedProvider];
   }
 
   const currentYear = new Date().getFullYear();
@@ -1276,33 +1506,35 @@ REGLAS CRÍTICAS:
   try {
     let rawText = '';
     let modelUsed = '';
-    let providerUsed: 'claude' | 'gemini' = chosenProvider;
+    let providerUsed: AIProviderId = providerChain[0];
     let sources: Array<{ title: string; url: string }> = [];
+    let chainError: unknown = null;
 
-    if (chosenProvider === 'claude') {
+    for (const candidateProvider of providerChain) {
       try {
-        const resClaude = await callClaudeMarketQuote(systemInstruction, promptParts.join('\n'));
-        rawText = resClaude.rawText;
-        modelUsed = resClaude.modelUsed;
-        providerUsed = 'claude';
-      } catch (claudeErr) {
-        if (requestedProvider === 'auto' && hasGeminiKey()) {
-          console.warn('Claude auto-fallback to Gemini:', claudeErr);
-          const resGemini = await callGeminiMarketQuote(systemInstruction, promptParts.join('\n'));
-          rawText = resGemini.rawText;
-          modelUsed = resGemini.modelUsed;
-          sources = resGemini.sources;
-          providerUsed = 'gemini';
-        } else {
-          throw claudeErr;
+        const result = await callProviderMarketQuote(
+          candidateProvider,
+          systemInstruction,
+          promptParts.join('\n')
+        );
+        rawText = result.rawText;
+        modelUsed = result.modelUsed;
+        sources = result.sources;
+        providerUsed = candidateProvider;
+        chainError = null;
+        break;
+      } catch (providerErr) {
+        chainError = providerErr;
+        if (providerChain.length > 1) {
+          console.log(`AI provider ${candidateProvider} failed, trying next configured provider...`);
         }
       }
-    } else {
-      const resGemini = await callGeminiMarketQuote(systemInstruction, promptParts.join('\n'));
-      rawText = resGemini.rawText;
-      modelUsed = resGemini.modelUsed;
-      sources = resGemini.sources;
-      providerUsed = 'gemini';
+    }
+
+    if (chainError || !rawText) {
+      throw chainError instanceof Error
+        ? chainError
+        : new Error('No se pudo obtener respuesta de ningún proveedor de IA configurado.');
     }
 
     const parsed = extractJsonFromText(rawText) as Record<string, unknown>;
@@ -1325,16 +1557,22 @@ REGLAS CRÍTICAS:
       const cleanDetail = rawMessage
         .replace(/AIza[0-9A-Za-z_\-]+/g, '[KEY]')
         .replace(/AQ\.[0-9A-Za-z_\-\.]+/g, '[KEY]')
-        .slice(0, 180);
+        .replace(/sk-[0-9A-Za-z_\-]+/g, '[KEY]')
+        .replace(/gsk_[0-9A-Za-z_\-]+/g, '[KEY]')
+        .slice(0, 500);
       friendlyMessage = isDesktopOrLocal
-        ? `La clave GEMINI_API_KEY en tu archivo .env no es válida o no tiene permisos activos. Genera una API Key gratuita (empieza por AIza...) en aistudio.google.com/apikey y guárdala con windows\\Configurar-API-Gemini.bat (luego cierra y vuelve a abrir el programa). Detalle: ${cleanDetail}`
-        : `La llave de API de Gemini no es válida o no tiene permisos. Verifica tu GEMINI_API_KEY (empieza por AIza... en aistudio.google.com/apikey) en .env o en las variables del servidor. Detalle: ${cleanDetail}`;
-      console.warn('Gemini auth warning in /api/ai/market-quote:', cleanDetail);
+        ? `La clave de IA configurada en .env no es válida o no tiene permisos activos. Puedes cambiar de motor o clave (Gemini, Groq gratis, OpenAI, OpenRouter, Claude, DeepSeek u Ollama) ejecutando windows\\Configurar-API-IA.bat y reiniciando el programa. Detalle: ${cleanDetail}`
+        : `La clave de IA configurada en el servidor no es válida o no tiene permisos activos. Verifica tus variables de entorno. Detalle: ${cleanDetail}`;
+      console.warn('AI auth warning in /api/ai/market-quote:', cleanDetail);
     } else if (isQuotaOrRateLimitError(err)) {
       status = 429;
       friendlyMessage =
         'Se alcanzó temporalmente el límite de cuota gratuita de Gemini. Espera unos 30-60 segundos e intenta de nuevo, o selecciona una API Key con facturación en Settings > Secrets para ampliar tu cuota.';
       console.warn('Gemini rate-limit (429) in /api/ai/market-quote:', rawMessage);
+    } else if (rawMessage.includes('503') || rawMessage.includes('UNAVAILABLE') || rawMessage.toLowerCase().includes('high demand')) {
+      status = 503;
+      friendlyMessage = 'Los modelos de Gemini están con alta demanda temporal. Espera unos segundos e intenta nuevamente.';
+      console.warn('Gemini temporary 503 in /api/ai/market-quote');
     } else if (rawMessage.includes('NOT_FOUND') || rawMessage.includes('404')) {
       status = 404;
       friendlyMessage = 'El modelo de IA solicitado no está disponible en este momento.';
@@ -1488,6 +1726,17 @@ async function startServer() {
   httpServer.listen(PORT, listenHost, () => {
     console.log(`Teknovant Labs full-stack server (HTTP + WS) running on http://${listenHost}:${PORT}`);
   });
+
+  const shutdown = () => {
+    wss.close();
+    httpServer.close(() => {
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(0), 5000).unref();
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 startServer().catch((err) => {

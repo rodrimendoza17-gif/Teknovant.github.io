@@ -1,6 +1,6 @@
 # Teknovant Labs — Administrador de Taller Tecnológico
 
-Plataforma web integral Full-Stack (`React + Express + WebSockets + Gemini AI + WhatsApp Directo`) para talleres de reparación de celulares, cómputo, consolas, desbloqueos y servicios técnicos en campo.
+Plataforma web integral Full-Stack (`React + Express + WebSockets + Gemini AI + WhatsApp Directo`) lista para abrir desde cualquier navegador online (computadora, tablet o celular).
 
 ---
 
@@ -11,59 +11,62 @@ Ejecuta estos comandos en la carpeta del proyecto desde tu PC:
 ```bash
 git init
 git add .
-git commit -m "Teknovant Labs - Taller listo para produccion"
+git commit -m "Teknovant Labs - Listo para hosting online"
 git branch -M main
 git remote add origin https://github.com/TU-USUARIO/teknovant-taller.git
 git push -u origin main
 ```
 
-> **Seguridad:** El archivo `.gitignore` ya protege automáticamente `.env`, `data/workshop-db.json` y `data/whatsapp-auth/` para que nunca subas tus contraseñas, base de datos ni sesión de WhatsApp a un repositorio público.
+> **Seguridad importante:** Nunca pegues tu `GEMINI_API_KEY` dentro del código fuente ni la subas a GitHub (GitHub y Google detectan y desactivan automáticamente las claves publicadas en repositorios). El archivo `.gitignore` ya bloquea `.env`, `data/workshop-db.json` y `data/whatsapp-auth/`.
 
 ---
 
-## Crear tu página web desde GitHub
+## Publicar tu página web online (con Gemini AI y WhatsApp activos)
 
-Como el taller incluye servidor **Node.js**, notificaciones en tiempo real (**WebSockets**) y sesión activa de **WhatsApp**, debes conectarlo a una plataforma con servidor activo (no uses GitHub Pages porque solo sirve archivos estáticos).
+Como el sistema usa servidor **Node.js**, **WebSockets en vivo** y sesión de **WhatsApp**, necesitas un host con servidor activo (no uses GitHub Pages porque solo sirve HTML estático).
 
-### Opción 1: Railway (Recomendada — más rápida)
-1. Crea una cuenta en [railway.app](https://railway.app) e inicia sesión con GitHub.
-2. Pulsa **New Project > Deploy from GitHub Repo** y selecciona tu repositorio (`railway.toml` y `Dockerfile` ya están configurados).
+### Opción 1: Render (Gratis para empezar, desde GitHub)
+1. Crea cuenta gratuita en [render.com](https://render.com) y conecta tu GitHub.
+2. Elige **New > Blueprint** y selecciona tu repositorio (`render.yaml` y `Dockerfile` ya vienen configurados en plan gratuito).
+3. En la pantalla de variables, pega tu **`GEMINI_API_KEY`** (clave `AIza...` de `https://aistudio.google.com/apikey`).
+4. Pulsa **Apply** y en unos minutos tendrás tu URL pública `https://...onrender.com` lista para cualquier navegador.
+   *(Nota: el plan gratuito de Render reinicia archivos temporales al actualizar; si necesitas guardar órdenes y sesión QR de WhatsApp de forma permanente, usa Railway con Volume o un VPS).*
+
+### Opción 2: Railway (Recomendada con guardado permanente)
+1. Inicia sesión con GitHub en [railway.app](https://railway.app).
+2. Pulsa **New Project > Deploy from GitHub Repo** y elige tu repo (`railway.toml` ya está listo).
 3. En **Variables**, agrega:
-   - `GEMINI_API_KEY` *(tu API Key gratuita de Google AI Studio)*
-   - `ADMIN_PASSCODE` *(opcional: clave fija de administrador; si la omites la creas al primer ingreso)*
-4. En tu servicio, abre **Volumes > Add Volume** y móntalo en:
-   ```text
-   /app/data
+   - `GEMINI_API_KEY` = tu clave de Google AI Studio (`AIza...`)
+   - `ADMIN_PASSCODE` = *(opcional)* tu contraseña de administrador
+4. En **Volumes > Add Volume**, móntalo en **`/app/data`** para conservar órdenes, facturas y sesión QR de WhatsApp.
+5. En **Settings > Networking > Generate Domain**, obtendrás tu enlace `https://...up.railway.app`.
+
+### Opción 3: Hosting VPS con Docker (Hostinger, DigitalOcean, Contabo, Vultr)
+1. Sube o clona el proyecto en tu servidor y crea el archivo `.env`:
+   ```bash
+   cp .env.example .env
+   nano .env   # Pega ahí tu GEMINI_API_KEY
    ```
-   *(Esto conserva tus órdenes, facturas y la sesión QR de WhatsApp entre reinicios).*
-5. En **Settings > Networking > Generate Domain**, obtendrás tu enlace `https://...up.railway.app` listo para usar.
+2. Inicia el sitio web online con un solo comando:
+   ```bash
+   docker compose up -d --build
+   ```
+3. Abre `http://TU-IP-O-DOMINIO:3000` (o apunta Nginx/Cloudflare con HTTPS hacia el puerto `3000`).
 
-### Opción 2: Render (con Blueprint incluido)
-1. En [render.com](https://render.com), elige **New > Blueprint** y conecta tu repositorio de GitHub (`render.yaml` ya incluye el disco persistente en `/app/data`).
-2. Ingresa tu `GEMINI_API_KEY` cuando Render te la solicite.
-3. En pocos minutos tendrás tu URL `https://...onrender.com`.
-
-### Opción 3: VPS propio con Docker (Hostinger, DigitalOcean, Vultr, Contabo)
-```bash
-git clone https://github.com/TU-USUARIO/teknovant-taller.git
-cd teknovant-taller
-cp .env.example .env
-# Edita .env y agrega GEMINI_API_KEY
-docker build -t teknovant-taller .
-docker run -d --name teknovant --restart unless-stopped -p 3000:3000 -v $(pwd)/data:/app/data --env-file .env teknovant-taller
-```
+### Opción 4: Hosting Node.js tradicional (Plesk, cPanel, Easypanel, etc.)
+- **Comando de compilación (Build):** `npm install && npm run build`
+- **Comando de inicio (Start):** `npm start`
+- **Variables de entorno en el panel del host:** `NODE_ENV=production` y `GEMINI_API_KEY=tu_clave`
 
 ---
 
-## Variables de entorno
-
-Consulta `.env.example`:
+## Variables de entorno (`.env.example`)
 - `GEMINI_API_KEY`: Requerida para el Cotizador Inteligente de Mercado.
 - `ANTHROPIC_API_KEY`: Opcional (proveedor alterno Claude).
-- `ADMIN_PASSCODE`: Opcional (si se omite, el sistema pide crear la contraseña al primer inicio).
+- `ADMIN_PASSCODE`: Opcional (si se omite, el sistema pide crear la contraseña al primer ingreso).
 - `TEKNOVANT_DATA_DIR`: Carpeta de datos (por defecto `./data` o `/app/data` en Docker).
 
 ---
 
-## Uso local o en Windows PC
-Para ejecutarlo como programa local en Windows o generar el instalador `.exe`/`.msi`, revisa `WINDOWS-INSTALACION.md`.
+## Uso local o en Windows PC (.exe)
+Para ejecutarlo o compilar el programa `.exe` en Windows, consulta `WINDOWS-INSTALACION.md`.

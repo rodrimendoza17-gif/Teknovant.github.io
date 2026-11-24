@@ -2,24 +2,39 @@ services:
   - type: web
     name: teknovant-labs-taller
     runtime: docker
-    plan: starter
+    plan: free
     healthCheckPath: /api/health
-    disk:
-      name: teknovant-data
-      mountPath: /app/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: "3000"
       - key: HOST
         value: 0.0.0.0
       - key: TEKNOVANT_DATA_DIR
         value: /app/data
+      - key: AI_PROVIDER
+        value: auto
       - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: CUSTOM_AI_BASE_URL
+        sync: false
+      - key: CUSTOM_AI_API_KEY
+        sync: false
+      - key: CUSTOM_AI_MODEL
+        sync: false
       - key: ADMIN_PASSCODE
         sync: false
+    # Si actualizas a plan "starter" en Render y quieres disco persistente permanente:
+    # disk:
+    #   name: teknovant-data
+    #   mountPath: /app/data
+    #   sizeGB: 1

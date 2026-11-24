@@ -18,6 +18,7 @@
     "desktop:dev": "npm run build:desktop && npx electron .",
     "desktop:exe": "npm run build:desktop && npx electron-builder --win nsis portable --x64 --config electron-builder.yml",
     "desktop:msi": "npm run build:desktop && npx electron-builder --win msi --x64 --config electron-builder.yml",
+    "desktop:all": "npm run build:desktop && npx electron-builder --win nsis portable msi --x64 --config electron-builder.yml",
     "preview": "vite preview",
     "clean": "rm -rf dist dist-server release server.js",
     "lint": "tsc --noEmit"

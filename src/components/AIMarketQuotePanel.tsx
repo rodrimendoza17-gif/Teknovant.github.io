@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { WorkshopSettings, QuoteItem } from '../types/workshop';
 import { formatCurrency } from '../utils/whatsapp';
-import { api, AIProvidersStatus } from '../utils/api';
+import { api, AIProvidersStatus, AIProviderId } from '../utils/api';
 
 export interface MarketTier {
   label: string;
@@ -178,7 +178,7 @@ export const AIMarketQuotePanel: React.FC<AIMarketQuotePanelProps> = ({
   const [query, setQuery] = useState('');
   const [knownPartCost, setKnownPartCost] = useState('');
   const [regionPreset, setRegionPreset] = useState<string>('mx');
-  const [aiProvider, setAiProvider] = useState<'auto' | 'claude' | 'gemini'>('gemini');
+  const [aiProvider, setAiProvider] = useState<'auto' | AIProviderId>('auto');
   const [providersStatus, setProvidersStatus] = useState<AIProvidersStatus | null>(null);
   const [providerUsed, setProviderUsed] = useState<string | null>(null);
 
@@ -380,29 +380,46 @@ export const AIMarketQuotePanel: React.FC<AIMarketQuotePanelProps> = ({
 
         {/* AI Provider & Region / Currency Selectors */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {providersStatus?.claude ? (
-            <div className="flex items-center gap-2 bg-[#070b16] border border-indigo-500/30 rounded-xl px-3 py-2">
-              <Bot className="w-4 h-4 text-indigo-400 shrink-0" />
-              <select
-                value={aiProvider}
-                onChange={(e) => setAiProvider(e.target.value as 'auto' | 'claude' | 'gemini')}
-                className="bg-transparent text-xs font-mono text-white outline-none cursor-pointer"
-                aria-label="Motor IA"
-              >
-                <option value="gemini" className="bg-[#070b16] text-white">
-                  Gemini IA (Gratis • Búsqueda Web)
-                </option>
-                <option value="claude" className="bg-[#070b16] text-white">
-                  Claude AI (Anthropic)
-                </option>
-              </select>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 bg-[#070b16] border border-emerald-500/30 rounded-xl px-3 py-2 text-xs font-mono text-emerald-300">
-              <Bot className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Gemini IA (Gratis • En Vivo)</span>
-            </div>
-          )}
+          {(() => {
+            const labels: Record<AIProviderId, string> = {
+              gemini: 'Google Gemini IA',
+              groq: 'Groq Cloud (Llama 3.3 Gratis)',
+              openai: 'OpenAI (ChatGPT)',
+              openrouter: 'OpenRouter (Modelos Gratis/Pro)',
+              claude: 'Claude AI (Anthropic)',
+              deepseek: 'DeepSeek IA',
+              custom: 'IA Personalizada / Ollama',
+            };
+            const list = providersStatus?.availableProviders || [];
+            if (list.length > 0) {
+              return (
+                <div className="flex items-center gap-2 bg-[#070b16] border border-indigo-500/30 rounded-xl px-3 py-2">
+                  <Bot className="w-4 h-4 text-indigo-400 shrink-0" />
+                  <select
+                    value={aiProvider}
+                    onChange={(e) => setAiProvider(e.target.value as 'auto' | AIProviderId)}
+                    className="bg-transparent text-xs font-mono text-white outline-none cursor-pointer"
+                    aria-label="Motor IA"
+                  >
+                    <option value="auto" className="bg-[#070b16] text-white">
+                      Auto ({list.length > 1 ? 'Respaldo multi-IA' : labels[list[0]]})
+                    </option>
+                    {list.map((p) => (
+                      <option key={p} value={p} className="bg-[#070b16] text-white">
+                        {labels[p]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            }
+            return (
+              <div className="flex items-center gap-2 bg-[#070b16] border border-amber-500/30 rounded-xl px-3 py-2 text-xs font-mono text-amber-300">
+                <Bot className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Sin API IA en .env</span>
+              </div>
+            );
+          })()}
 
           <div className="flex items-center gap-2 bg-[#070b16] border border-cyan-500/25 rounded-xl px-3 py-2">
             <Globe className="w-4 h-4 text-cyan-400 shrink-0" />

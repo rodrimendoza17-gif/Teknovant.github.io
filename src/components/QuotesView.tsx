@@ -128,7 +128,7 @@ export const QuotesView: React.FC<QuotesViewProps> = ({
         region: settings.city || 'México / Latinoamérica',
         currency: settings.currency || 'MXN ($)',
         workshopName: settings.name,
-        provider: 'gemini'
+        provider: 'auto'
       });
 
       setModalAIResult(data.quoteAnalysis as MarketQuoteAnalysis);
